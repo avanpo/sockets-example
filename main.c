@@ -12,36 +12,28 @@
 extern char **environ;
 extern char *program_name;
 
-char **get_options(char **);
+char **get_options();
 int client(char *, char *, char *);
 int server(char *, char *);
 
+// options is null-terminated so get_options knows how many there are.
+char const * const options[] = { "role", "host", "port", "source", NULL };
+enum option_index { ROLE, HOST, PORT, SOURCE };
+
 int main(int argc, char **argv){
     char *program_name = basename(argv[0]);
-    // options is null-terminated so get_options knows how many there are.
-    char *options[] = { "role", "host", "port", "source", NULL };
-    enum option_index { ROLE, HOST, PORT, SOURCE };
-    char **option_values = get_options(options);
-/*    int sd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sd == -1)
-        fprintf(stderr, "%s: socket() error: %s\n", program_name, strerror(errno));
-    int port = atoi(options[2].value);
-    int address;
-    struct addrinfo *res;
-    if (getaddrinfo(options[1].value, options[2].value, NULL, &res))
-        fprintf(stderr, "%s: getaddrinfo() error: %s\n", program_name, strerror(errno));
-    const struct sockaddr saddr = {
-        AF_INET, htons(port), htons(address)
-    };
-*/    if (!strcmp(options[ROLE], "client"))
-        return client(options[HOST], options[PORT], options[SOURCE]);
-    else if (!strcmp(options[ROLE], "server"))
-        return server(options[HOST], options[PORT]);
+    // option_values are accessed as option_value[option_index].
+    char **option_values = get_options();
+    if (!strcmp(option_values[ROLE], "client"))
+        return client(option_values[HOST], option_values[PORT],
+                option_values[SOURCE]);
+    else if (!strcmp(option_values[ROLE], "server"))
+        return server(option_values[HOST], option_values[PORT]);
 }
 
 // get_options returns an array of option values, with the indices corresponding
 // to those of options.
-char **get_options(char **options){
+char **get_options(){
     char **values;
     for (int i = 0;; i++)
         if (!options[i]){
@@ -71,6 +63,18 @@ int client(char *host, char *port, char *source){
                 strerror(errno));
         close(sd);
     }*/
+/*    int sd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sd == -1)
+        fprintf(stderr, "%s: socket() error: %s\n", program_name, strerror(errno));
+    int port = atoi(options[2].value);
+    int address;
+    struct addrinfo *res;
+    if (getaddrinfo(options[1].value, options[2].value, NULL, &res))
+        fprintf(stderr, "%s: getaddrinfo() error: %s\n", program_name, strerror(errno));
+    struct sockaddr const saddr = {
+        AF_INET, htons(port), htons(address)
+    };
+*/
     return 0;
 }
 

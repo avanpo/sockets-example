@@ -47,6 +47,7 @@ int main(int argc, char **argv){
         return EXIT_FAILURE;
     if (recv_message(sock))
         return EXIT_FAILURE;
+    printf("%s", sock->buffer);
     close_socket(sock);
     return EXIT_SUCCESS;
 }
@@ -167,8 +168,10 @@ int recv_message(struct socket *sock){
         error(recv);
         return -1;
     }
-    if (ret < sock->buf_length){
+    // ensure the buffer is null-terminated
+    if (ret < sock->buf_length)
         sock->buffer[ret] = '\0';
-    }
+    else
+        sock->buffer[sock->buf_length - 1] = '\0';
     return 0;
 }

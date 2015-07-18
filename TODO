@@ -1,0 +1,3 @@
+
+- send/receive datagrams simultaneously: pthread for recv, pthread for sendto,
+    lock on sock->fd

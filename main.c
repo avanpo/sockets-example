@@ -33,7 +33,7 @@ int main(int argc, char **argv){
     else if (!strcmp(option_values[ROLE], "server"))
         return server(option_values);
     else
-        return 1;
+        return EXIT_FAILURE;
 }
 
 // get_options returns an array of option values, with the indices corresponding
@@ -85,22 +85,25 @@ int client(char **o_values){
         error(getaddrinfo);
     else if (gai_errno)
         error_fmt(getaddrinfo, gai_strerror(gai_errno));
+    int sockfd;
     for (struct addrinfo *cur = result; cur; cur = cur->ai_next){
-        printf("--------------------\n");
-        printf("ai_flags:       %d\n", cur->ai_flags);
-        printf("ai_family:      %d\n", cur->ai_family);
-        printf("ai_socktype:    %d\n", cur->ai_socktype);
-        printf("ai_protocol:    %d\n", cur->ai_protocol);
-        printf("ai_addrlen:     %d\n", cur->ai_addrlen);
-        printf("ai_addr:        %p\n", cur->ai_addr);
-        printf("ai_canonname:   %s\n", cur->ai_canonname);
-        printf("ai_next:        %p\n", cur->ai_next);
+        sockfd = socket(cur->ai_family, cur->ai_socktype, cur->ai_protocol);
+        if (sockfd == -1){
+            if (!cur->ai_next)
+                error(socket);
+            continue;
+        }
     }
-
     freeaddrinfo(result);
-    return 0;
+
+
+
+
+    if (close(sockfd))
+        error(close);
+    return EXIT_SUCCESS;
 }
 
 int server(char **o_values){
-    return 0;
+    return EXIT_SUCCESS;
 }

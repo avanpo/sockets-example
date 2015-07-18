@@ -9,26 +9,31 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define error_fmt(f, e) fprintf(stderr, "%s: %s() error: %s\n", program_name, \
+        #f, e)
+#define error(f) error_fmt(f, strerror(errno))
+
 extern char **environ;
-extern char *program_name;
 
 char **get_options();
-int client(char *, char *, char *);
-int server(char *, char *);
+int client(char **);
+int server(char **);
 
+char *program_name;
 // options is null-terminated so get_options knows how many there are.
 char const * const options[] = { "role", "host", "port", "source", NULL };
 enum option_index { ROLE, HOST, PORT, SOURCE };
 
 int main(int argc, char **argv){
-    char *program_name = basename(argv[0]);
+    program_name = basename(argv[0]);
     // option_values are accessed as option_value[option_index].
     char **option_values = get_options();
     if (!strcmp(option_values[ROLE], "client"))
-        return client(option_values[HOST], option_values[PORT],
-                option_values[SOURCE]);
+        return client(option_values);
     else if (!strcmp(option_values[ROLE], "server"))
-        return server(option_values[HOST], option_values[PORT]);
+        return server(option_values);
+    else
+        return 1;
 }
 
 // get_options returns an array of option values, with the indices corresponding
@@ -40,24 +45,20 @@ char **get_options(){
             values = calloc(i, sizeof(char *));
             break;
         }
-    for (char **e = environ; *e; e++){
-        char *env = *e;
-        for (int i = 0; env[i] != '\0'; i++){
-            if (env[i] == '='){
-                for (int j = 0; options[j]; j++){
-                    if (!strncmp(options[j], env, i) && options[j][i] == '\0'){
-                        values[j] = env + i + 1;
+    for (char **e = environ; *e; e++)
+        for (int i = 0; (*e)[i] != '\0'; i++)
+            if ((*e)[i] == '='){
+                for (int j = 0; options[j]; j++)
+                    if (!strncmp(options[j], *e, i) && options[j][i] == '\0'){
+                        values[j] = *e + i + 1;
                         break;
                     }
-                }
                 break;
             }
-        }
-    }
     return values;
 }
 
-int client(char *host, char *port, char *source){
+int client(char **o_values){
 /*    if (connect(sd, &saddr, sizeof(saddr))){
         fprintf(stderr, "%s: connect() error: %s\n", program_name,
                 strerror(errno));
@@ -68,16 +69,38 @@ int client(char *host, char *port, char *source){
         fprintf(stderr, "%s: socket() error: %s\n", program_name, strerror(errno));
     int port = atoi(options[2].value);
     int address;
-    struct addrinfo *res;
-    if (getaddrinfo(options[1].value, options[2].value, NULL, &res))
-        fprintf(stderr, "%s: getaddrinfo() error: %s\n", program_name, strerror(errno));
     struct sockaddr const saddr = {
         AF_INET, htons(port), htons(address)
     };
 */
+    struct addrinfo hints = { 0 };
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+    hints.ai_flags = AI_CANONNAME;
+    struct addrinfo *result;
+    int gai_errno = getaddrinfo(o_values[HOST], o_values[PORT], &hints,
+            &result);
+    if (gai_errno == EAI_SYSTEM)
+        error(getaddrinfo);
+    else if (gai_errno)
+        error_fmt(getaddrinfo, gai_strerror(gai_errno));
+    for (struct addrinfo *cur = result; cur; cur = cur->ai_next){
+        printf("--------------------\n");
+        printf("ai_flags:       %d\n", cur->ai_flags);
+        printf("ai_family:      %d\n", cur->ai_family);
+        printf("ai_socktype:    %d\n", cur->ai_socktype);
+        printf("ai_protocol:    %d\n", cur->ai_protocol);
+        printf("ai_addrlen:     %d\n", cur->ai_addrlen);
+        printf("ai_addr:        %p\n", cur->ai_addr);
+        printf("ai_canonname:   %s\n", cur->ai_canonname);
+        printf("ai_next:        %p\n", cur->ai_next);
+    }
+
+    freeaddrinfo(result);
     return 0;
 }
 
-int server(char *host, char *port){
+int server(char **o_values){
     return 0;
 }

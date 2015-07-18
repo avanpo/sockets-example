@@ -1,40 +1,25 @@
 
-#include <errno.h>
 #include <libgen.h>
 #include <netdb.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define error_fmt(f, e) fprintf(stderr, "%s: %s() error: %s\n", program_name, \
-        #f, e)
-#define error(f) error_fmt(f, strerror(errno))
+#include "sockets-example.h"
 
-// type declarations/definitions
-struct socket {
-    int fd;
-    char *buffer;
-    int buf_length;
-};
+// extern function declarations
+extern int get_address(struct sockaddr **, socklen_t *, char *, char *);
 
-// function declarations
-char **get_options();
-struct socket *open_socket(int);
-void close_socket(struct socket *);
-int bind_socket(struct socket *, char *);
-int get_address(struct sockaddr **, socklen_t *, char *, char *);
-int send_message(struct socket *, struct sockaddr *, socklen_t, char *);
-int recv_message(struct socket *);
+// static function declarations
+static char **get_options();
+static struct socket *open_socket(int);
+static void close_socket(struct socket *);
+static int bind_socket(struct socket *, char *);
 
-// external globals declarations
-extern char **environ;
-
-// static globals definitions
-char *program_name;
+// globals definitions
+char const *program_name;
 // options is null-terminated so get_options knows how many there are
-char const * const options[] = { "host", "remote_port", "local_port", NULL };
+static char const * const options[] = { "host", "remote_port", "local_port", NULL };
 enum option_index { HOST, REMOTE_PORT, LOCAL_PORT };
 
 int main(int argc, char **argv){
@@ -45,9 +30,6 @@ int main(int argc, char **argv){
     struct socket *sock = open_socket(512);
     if (bind_socket(sock, option_values[LOCAL_PORT]))
         return EXIT_FAILURE;
-    if (recv_message(sock))
-        return EXIT_FAILURE;
-    printf("%s", sock->buffer);
     close_socket(sock);
     return EXIT_SUCCESS;
 }
@@ -142,36 +124,5 @@ int get_address(struct sockaddr **addr, socklen_t *addrlen, char *host,
     *addr = result->ai_addr;
     *addrlen = result->ai_addrlen;
     freeaddrinfo(result);
-    return 0;
-}
-
-// send_message sends a datagram to the specified remote address
-int send_message(struct socket *sock, struct sockaddr *addr, socklen_t addrlen,
-        char *message){
-    int length = strlen(message);
-    if (length >= sock->buf_length)
-        length = sock->buf_length - 1;
-    strncpy(sock->buffer, message, length);
-    // use length + 1 to include a null terminator
-    if (sendto(sock->fd, sock->buffer, length + 1, 0, addr, addrlen) == -1){
-        error(sendto);
-        return -1;
-    }
-    return 0;
-}
-
-// recv_message waits for an incoming datagram and writes it to sock->buffer
-//  if the socket is unbound, this call will cause the program to hang
-int recv_message(struct socket *sock){
-    int ret = recv(sock->fd, sock->buffer, sock->buf_length, MSG_TRUNC);
-    if (ret == -1){
-        error(recv);
-        return -1;
-    }
-    // ensure the buffer is null-terminated
-    if (ret < sock->buf_length)
-        sock->buffer[ret] = '\0';
-    else
-        sock->buffer[sock->buf_length - 1] = '\0';
     return 0;
 }

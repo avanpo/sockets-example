@@ -1,6 +1,7 @@
 
 #include <libgen.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -16,11 +17,15 @@ static struct socket *open_socket(int);
 static void close_socket(struct socket *);
 static int bind_socket(struct socket *, char *);
 
+// extern globals declarations
+extern char **environ;
+
 // globals definitions
 char const *program_name;
 // options is null-terminated so get_options knows how many there are
-static char const * const options[] = { "host", "remote_port", "local_port", NULL };
-enum option_index { HOST, REMOTE_PORT, LOCAL_PORT };
+static char const * const options[] = { "host", "local_port", "remote_port",
+    NULL };
+enum option_index { HOST, LOCAL_PORT, REMOTE_PORT };
 
 int main(int argc, char **argv){
     program_name = basename(argv[0]);
@@ -30,6 +35,20 @@ int main(int argc, char **argv){
     struct socket *sock = open_socket(512);
     if (bind_socket(sock, option_values[LOCAL_PORT]))
         return EXIT_FAILURE;
+    // create thread for reading incoming datagrams
+    pthread_t recv_thread;
+    int err = pthread_create(&recv_thread, NULL, recv_start, sock);
+    if (err){
+        error_no(pthread_create, err);
+        return EXIT_FAILURE;
+    }
+    // wait for recv_thread before closing socket
+    void *recv_thread_ret;
+    err = pthread_join(recv_thread, &recv_thread_ret);
+    if (err){
+        error_no(pthread_join, err);
+        return EXIT_FAILURE;
+    }
     close_socket(sock);
     return EXIT_SUCCESS;
 }

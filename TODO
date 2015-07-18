@@ -2,3 +2,5 @@
 - send/receive datagrams simultaneously: pthread for recv, pthread for sendto,
     lock on sock->fd
 - use sockaddr_in manually, instead of getaddrinfo()
+- use the POSIX-compliant version of strerror_r(), to avoid the thread-unsafe
+    strerror()

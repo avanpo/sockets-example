@@ -1,5 +1,5 @@
 CC=cc
-CFLAGS=-g -Wall
+CFLAGS=-g -Wall -pthread
 DEPS=sockets-example.h
 OBJ=main.o send.o recv.o
 

@@ -21,3 +21,12 @@ int recv_message(struct socket *sock){
         sock->buffer[sock->buf_length - 1] = '\0';
     return 0;
 }
+
+// recv_start is the start function for the reader thread
+void *recv_start(void *arg){
+    struct socket *sock = (struct socket *) arg;
+    unsigned long sequence_no = 0;
+    while (!recv_message(sock))
+        printf("%s\n%ld\n", sock->buffer, sequence_no++);
+    return NULL;
+}

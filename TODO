@@ -1,0 +1,6 @@
+
+- send/receive datagrams simultaneously using pthreads
+- use sockaddr_in manually, instead of getaddrinfo()
+- use the POSIX-compliant version of strerror_r(), to avoid the thread-unsafe
+    strerror()
+- figure out the best way to do error reporting and recovery

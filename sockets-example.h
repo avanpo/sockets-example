@@ -11,13 +11,6 @@
 #define error_no(f, n) error_fmt(f, strerror(n))
 #define error(f) error_no(f, errno)
 
-// type definitions
-struct socket {
-    int fd;
-    char *buffer;
-    int buf_length;
-};
-
 // extern function declarations
 extern void *recv_start(void *);
 

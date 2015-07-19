@@ -13,9 +13,8 @@ extern int get_address(struct sockaddr **, socklen_t *, char *, char *);
 
 // static function declarations
 static char **get_options();
-static struct socket *open_socket(int);
-static void close_socket(struct socket *);
-static int bind_socket(struct socket *, char *);
+static int open_socket();
+static int bind_socket(int, char *);
 
 // extern globals declarations
 extern char **environ;
@@ -31,13 +30,12 @@ int main(int argc, char **argv){
     program_name = basename(argv[0]);
     // option_values are accessed as option_value[option_index]
     char **option_values = get_options();
-    // Using a buffer length of 512 bytes to stay within the usual MTUs
-    struct socket *sock = open_socket(512);
-    if (bind_socket(sock, option_values[LOCAL_PORT]))
-        return EXIT_FAILURE;
+    int sockfd = open_socket();
+    if (sockfd == -1) return EXIT_FAILURE;
+    if (bind_socket(sockfd, option_values[LOCAL_PORT])) return EXIT_FAILURE;
     // create thread for reading incoming datagrams
     pthread_t recv_thread;
-    int err = pthread_create(&recv_thread, NULL, recv_start, sock);
+    int err = pthread_create(&recv_thread, NULL, recv_start, &sockfd);
     if (err){
         error_no(pthread_create, err);
         return EXIT_FAILURE;
@@ -49,7 +47,7 @@ int main(int argc, char **argv){
         error_no(pthread_join, err);
         return EXIT_FAILURE;
     }
-    close_socket(sock);
+    if (close(sockfd)) error(close);
     return EXIT_SUCCESS;
 }
 
@@ -75,46 +73,25 @@ char **get_options(){
     return values;
 }
 
-// open_socket returns a UDP socket and buffer
-struct socket *open_socket(int buf_length){
-    struct socket *sock = malloc(sizeof(struct socket));
-    if (!sock){
-        error(malloc);
-        return NULL;
-    }
-    sock->fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock->fd == -1){
+// open_socket returns a UDP socket
+int open_socket(){
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == -1){
         error(socket);
-        free(sock);
-        return NULL;
+        return -1;
     }
-    sock->buffer = calloc(1, buf_length);
-    if (!sock->buffer){
-        error(calloc);
-        free(sock);
-        return NULL;
-    }
-    sock->buf_length = buf_length;
-    return sock;
-}
-
-// close_socket closes the passed socket and frees associated memory
-void close_socket(struct socket *sock){
-    if (close(sock->fd)) error(close);
-    free(sock->buffer);
-    free(sock);
-    return;
+    return sockfd;
 }
 
 // bind_socket binds the socket to the specified local port if possible
 //  port can be a number or a service name from /etc/services
 //  passing NULL to port lets the kernel choose an ephemeral port to bind to
-int bind_socket(struct socket *sock, char *port){
+int bind_socket(int sockfd, char *port){
     struct sockaddr *addr;
     socklen_t addrlen;
     if (get_address(&addr, &addrlen, "localhost", port))
         return -1;
-    if (bind(sock->fd, addr, addrlen)){
+    if (bind(sockfd, addr, addrlen)){
         error(bind);
         return -1;
     }

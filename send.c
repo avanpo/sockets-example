@@ -4,11 +4,11 @@
 #include "sockets-example.h"
 
 // static function declarations
-static int send_message(struct socket *, struct sockaddr *, socklen_t, char *);
-
+static int send_message(int, struct sockaddr *, socklen_t, char *);
+/*
 // send_message sends a datagram to the specified remote address
-int send_message(struct socket *sock, struct sockaddr *addr,
-        socklen_t addrlen, char *message){
+int send_message(int sockfd, struct sockaddr *addr, socklen_t addrlen,
+        char *message){
     int length = strlen(message);
     if (length >= sock->buf_length)
         length = sock->buf_length - 1;
@@ -20,3 +20,4 @@ int send_message(struct socket *sock, struct sockaddr *addr,
     }
     return 0;
 }
+*/

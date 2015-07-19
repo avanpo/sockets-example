@@ -1,32 +1,60 @@
 
+#include <netinet/in.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 
 #include "sockets-example.h"
 
-// static function declarations
-static int recv_message(struct socket *);
+// type definitions
+struct datagram {
+    int sockfd;
+    void *buffer;
+    const int buf_length;
+    unsigned long src_address;
+    unsigned short src_port;
+    int length;
+};
 
-// recv_message waits for an incoming datagram and writes it to sock->buffer
+// static function declarations
+static int recv_message(struct datagram *);
+
+// recv_message waits for an incoming datagram and writes it to
+//  datagram->sock->buffer
 //  if the socket is unbound, this call will cause the program to hang
-int recv_message(struct socket *sock){
-    int ret = recv(sock->fd, sock->buffer, sock->buf_length, MSG_TRUNC);
+int recv_message(struct datagram *datagram){
+    struct sockaddr_in addr;
+    socklen_t addrlen = sizeof(struct sockaddr_in);
+    int ret = recvfrom(datagram->sockfd, datagram->buffer, datagram->buf_length,
+            MSG_TRUNC, (struct sockaddr *) &addr, &addrlen);
     if (ret == -1){
         error(recv);
         return -1;
     }
-    // ensure the buffer is null-terminated
-    if (ret < sock->buf_length)
-        sock->buffer[ret] = '\0';
+    datagram->src_address = ntohl(addr.sin_addr.s_addr);
+    datagram->src_port = ntohs(addr.sin_port);
+    if (ret > datagram->buf_length)
+        datagram->length = datagram->buf_length;
     else
-        sock->buffer[sock->buf_length - 1] = '\0';
+        datagram->length = ret;
     return 0;
 }
 
 // recv_start is the start function for the reader thread
 void *recv_start(void *arg){
-    struct socket *sock = (struct socket *) arg;
-    unsigned long sequence_no = 0;
-    while (!recv_message(sock))
-        printf("%s\n%ld\n", sock->buffer, sequence_no++);
+    int sockfd = *(int *) arg;
+    // using a buffer length of 512 bytes to stay within the usual MTUs
+    const int buf_length = 512;
+    void *buffer = malloc(buf_length);
+    if (!buffer){
+        error(malloc);
+        return NULL;
+    }
+    while (1){
+        struct datagram datagram = { sockfd, buffer, buf_length };
+        if (recv_message(&datagram))
+            return NULL;
+        printf("%s", (char *) datagram.buffer);
+    }
+    free(buffer);
     return NULL;
 }

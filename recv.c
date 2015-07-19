@@ -53,7 +53,17 @@ void *recv_start(void *arg){
         struct datagram datagram = { sockfd, buffer, buf_length };
         if (recv_message(&datagram))
             return NULL;
-        printf("%s", (char *) datagram.buffer);
+        ((char *) buffer)[datagram.length] = '\0';
+        ///////temp//  format ip address
+        unsigned char a, b, c, d;
+        unsigned int ip = datagram.src_address;
+        a = (0xff000000 & ip) >> 24;
+        b = (0x00ff0000 & ip) >> 16;
+        c = (0x0000ff00 & ip) >> 8;
+        d = 0x000000ff & ip;
+        printf("Source: %u.%u.%u.%u:%u\n", a, b, c, d, datagram.src_port);
+        printf("Length: %d bytes\n", datagram.length);
+        printf("%s\n", (char *) buffer);
     }
     free(buffer);
     return NULL;

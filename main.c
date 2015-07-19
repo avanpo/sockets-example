@@ -8,9 +8,6 @@
 
 #include "sockets-example.h"
 
-// extern function declarations
-extern int get_address(struct sockaddr **, socklen_t *, char *, char *);
-
 // static function declarations
 static char **get_options();
 static int open_socket();
@@ -22,9 +19,8 @@ extern char **environ;
 // globals definitions
 char const *program_name;
 // options is null-terminated so get_options knows how many there are
-static char const * const options[] = { "host", "local_port", "remote_port",
-    NULL };
-enum option_index { HOST, LOCAL_PORT, REMOTE_PORT };
+static char const * const options[] = { "local_port", NULL };
+enum option_index { LOCAL_PORT };
 
 int main(int argc, char **argv){
     program_name = basename(argv[0]);
@@ -33,20 +29,22 @@ int main(int argc, char **argv){
     int sockfd = open_socket();
     if (sockfd == -1) return EXIT_FAILURE;
     if (bind_socket(sockfd, option_values[LOCAL_PORT])) return EXIT_FAILURE;
-    // create thread for reading incoming datagrams
-    pthread_t recv_thread;
-    int err = pthread_create(&recv_thread, NULL, recv_start, &sockfd);
+    // create thread for sending datagrams
+    pthread_t send_thread;
+    int err = pthread_create(&send_thread, NULL, send_start, &sockfd);
     if (err){
         error_no(pthread_create, err);
         return EXIT_FAILURE;
     }
-    // wait for recv_thread before closing socket
-    void *recv_thread_ret;
-    err = pthread_join(recv_thread, &recv_thread_ret);
+    if (recv_start(sockfd)) return EXIT_FAILURE;
+    // wait for send_thread before closing socket
+    void *send_thread_ret;
+    err = pthread_join(send_thread, &send_thread_ret);
     if (err){
         error_no(pthread_join, err);
         return EXIT_FAILURE;
     }
+    if (send_thread_ret) return EXIT_FAILURE;
     if (close(sockfd)) error(close);
     return EXIT_SUCCESS;
 }
@@ -114,7 +112,7 @@ int get_address(struct sockaddr **addr, socklen_t *addrlen, char *host,
         return -1;
     }
     else if (gai_errno){
-        error_fmt(getaddrinfo, gai_strerror(gai_errno));
+        error_m(getaddrinfo, gai_strerror(gai_errno));
         return -1;
     }
     *addr = result->ai_addr;

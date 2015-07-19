@@ -39,21 +39,18 @@ int recv_message(struct datagram *datagram){
     return 0;
 }
 
-// recv_start is the start function for the reader thread
-void *recv_start(void *arg){
-    int sockfd = *(int *) arg;
+// recv_start begins the read loop for incoming datagrams
+int recv_start(int sockfd){
     // using a buffer length of 512 bytes to stay within the usual MTUs
     const int buf_length = 512;
     void *buffer = malloc(buf_length);
     if (!buffer){
         error(malloc);
-        return NULL;
+        return -1;
     }
     while (1){
         struct datagram datagram = { sockfd, buffer, buf_length };
-        if (recv_message(&datagram))
-            return NULL;
-        ((char *) buffer)[datagram.length] = '\0';
+        if (recv_message(&datagram)) return -1;
         ///////temp//  format ip address
         unsigned char a, b, c, d;
         unsigned int ip = datagram.src_address;
@@ -64,7 +61,8 @@ void *recv_start(void *arg){
         printf("Source: %u.%u.%u.%u:%u\n", a, b, c, d, datagram.src_port);
         printf("Length: %d bytes\n", datagram.length);
         printf("%s\n", (char *) buffer);
+        memset(buffer, 0, 512);
     }
     free(buffer);
-    return NULL;
+    return 0;
 }

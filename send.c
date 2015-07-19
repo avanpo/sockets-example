@@ -30,7 +30,8 @@ void *send_start(void *arg){
                 error(scanf);
                 fatal("failure reading from stdin");
             }
-            fatal("invalid header");
+            // On EOF we assume success
+            exit(EXIT_SUCCESS);
         }
         if (ret != 3) fatal("invalid header");
         if (get_address(&addr, &addrlen, host, port)) fatal("invalid address");

@@ -24,7 +24,6 @@ extern void recv_start(int);
 extern void *send_start(void *);
 
 /// extern globals declarations
-extern pthread_mutex_t stdout_mutex;
 extern char const *program_name;
 
 #endif

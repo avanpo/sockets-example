@@ -19,10 +19,7 @@ int main(int argc, char **argv){
     int sockfd = open_socket(set_port());
     // create thread for sending datagrams
     pthread_t send_thread;
-    pthread_mutex_t stdout_mutex;
-    int err = pthread_mutex_init(&stdout_mutex, NULL);
-    if (err); //error
-    err = pthread_create(&send_thread, NULL, send_start, &sockfd);
+    int err = pthread_create(&send_thread, NULL, send_start, &sockfd);
     if (err); //error
     recv_start(sockfd);
     // wait for send_thread before closing socket
@@ -64,8 +61,6 @@ in_port_t set_port(){
         }
         ret = printf("Invalid input, try again: ");
         if (ret < 0); //error
-        // flush stdin
-        while (fgetc(stdin) != EOF);
     }
     return 0;
 }
@@ -85,7 +80,7 @@ int open_socket(in_port_t port){
     char address[INET_ADDRSTRLEN];
     if (inet_ntop(AF_INET, &sa.sin_addr, address, INET_ADDRSTRLEN)); //error
     int bound_port = ntohs(sa.sin_port);
-    int ret = printf("Listening for UDP datagrams on %s:%d\n", address,
+    int ret = printf("Listening for datagrams on %s:%d\n", address,
             bound_port);
     if (ret < 0); //error
     return sockfd;

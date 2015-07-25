@@ -23,9 +23,8 @@ static void recv_message(struct datagram *);
 
 // recv_start begins the read loop for incoming datagrams
 void recv_start(int sockfd){
+    // NULL-terminating buffer so it can optionally be used as a string
     unsigned char buf[UDP_MAX_PAYLOAD + 1];
-    // NULL-terminate buffer so it can optionally be used as a string
-    buf[UDP_MAX_PAYLOAD] = '\0';
     while (1){
         struct datagram dg = { sockfd, buf };
         recv_message(&dg);
@@ -33,25 +32,33 @@ void recv_start(int sockfd){
         if (!inet_ntop(AF_INET, &dg.src_address, address, INET_ADDRSTRLEN))
             ; //error
         int port = ntohs(dg.src_port);
-        int ret = printf("From %s:%d\n", address, port);
+        int ret = printf("%d byte%s from %s:%d", dg.length,
+                dg.length != 1 ? "s" : "", address, port);
         if (ret < 0); //error
-        for (int i = 0; i < dg.length; i++){
-            // if any characters in buf aren't printable, print a hexadecimal
-            // representation instead
-            if (!isprint(buf[i])){
-                unsigned char hex[2 * UDP_MAX_PAYLOAD + 1];
-                hex[2 * UDP_MAX_PAYLOAD] = '\0';
-                for (i = 0; i < 2 * UDP_MAX_PAYLOAD; i++){
-                    int n = i % 2 ? buf[i / 2] & 0x0f : buf[i / 2] >> 4;
-                    hex[i] = n < 10 ? n + '0' : n + 'a';
-                }
-                ret = printf("%s\n", hex);
-                if (ret < 0); //error
-                break;
+        int i = 0;
+        for (; i < dg.length; i++)
+            if (!isprint(buf[i])) break;
+        // if any characters in buf aren't printable, print a hexadecimal
+        // representation instead
+        if (i < dg.length){
+            // 5 characters for every 2 input
+            char hex[(5 * UDP_MAX_PAYLOAD / 2) + 1];
+            int p = 0;
+            for (i = 0; i < dg.length; i++){
+                char a = buf[i] >> 4;
+                char b = buf[i] & 0x0f;
+                hex[p++] = a < 10 ? a + '0' : a - 10 + 'a';
+                hex[p++] = b < 10 ? b + '0' : b - 10 + 'a';
+                if (!((i + 1) % 2))
+                    hex[p++] = ' ';
             }
-            ret = printf("%s\n", buf);
+            hex[5 * dg.length / 2] = '\0';
+            ret = printf(" (in hexadecimal)\n%s\n", hex);
             if (ret < 0); //error
+            continue;
         }
+        ret = printf("\n%s\n", buf);
+        if (ret < 0); //error
     }
 }
 
@@ -61,9 +68,10 @@ void recv_message(struct datagram *dg){
     socklen_t salen = sizeof(struct sockaddr_in);
     int ret = recvfrom(dg->sockfd, dg->buffer, UDP_MAX_PAYLOAD, MSG_TRUNC,
             (struct sockaddr *) &sa, &salen);
-    if (ret == -1) //error
+    if (ret == -1); //error
     dg->src_address = sa.sin_addr.s_addr;
     dg->src_port = sa.sin_port;
     dg->too_large = ret < UDP_MAX_PAYLOAD ? false : true;
     dg->length = dg->too_large ? UDP_MAX_PAYLOAD : ret;
+    dg->buffer[dg->length] = '\0';
 }

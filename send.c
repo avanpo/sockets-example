@@ -20,13 +20,15 @@ void *send_start(void *arg){
         sa.sin_addr.s_addr = set_address();
         sa.sin_port = set_port();
         int ret, count = 0;
+        // flush newline from last input
+        fgetc(stdin);
         while ((ret = fread(buf, 1, UDP_MAX_PAYLOAD, stdin))){
             if (sendto(sockfd, buf, ret, 0, (struct sockaddr *) &sa, salen)
                     == -1); //error
             count++;
             if (ret < UDP_MAX_PAYLOAD) break;
         }
-        ret = printf("%d datagram%s sent.\n", count, count > 1 ? "s" : "");
+        ret = printf("\n%d datagram%s sent.\n", count, count != 1 ? "s" : "");
         if (ret < 0); //error
     }
     return NULL;
@@ -60,8 +62,6 @@ uint32_t set_address(){
         }
         ret = printf("Invalid input, try again: ");
         if (ret < 0); //error
-        // flush stdin
-        while (fgetc(stdin) != EOF);
     }
     return 0;
 }
@@ -91,8 +91,6 @@ in_port_t set_port(){
         }
         ret = printf("Invalid input, try again: ");
         if (ret < 0); //error
-        // flush stdin
-        while (fgetc(stdin) != EOF);
     }
     return 0;
 }

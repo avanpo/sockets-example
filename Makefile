@@ -9,8 +9,5 @@ OBJ=main.o send.o recv.o
 sockets-example: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
-test:
-	make && ./sockets-example
-
 clean:
-	rm sockets-example *.o
+	rm -f sockets-example *.o

@@ -1,122 +1,79 @@
 
+#include <arpa/inet.h>
 #include <libgen.h>
-#include <netdb.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include "sockets-example.h"
 
-// static function declarations
-static char **get_options();
-static int open_socket();
-static int bind_socket(int, char *);
+/// static function declarations
+static in_port_t set_port();
+static int open_socket(uint16_t);
 
-// extern globals declarations
-extern char **environ;
-
-// globals definitions
+/// globals definitions
 char const *program_name;
-// options is null-terminated so get_options knows how many there are
-static char const * const options[] = { "local_port", NULL };
-enum option_index { LOCAL_PORT };
 
 int main(int argc, char **argv){
     program_name = basename(argv[0]);
-    // option_values are accessed as option_value[option_index]
-    char **option_values = get_options();
-    int sockfd = open_socket();
-    if (sockfd == -1) return EXIT_FAILURE;
-    if (bind_socket(sockfd, option_values[LOCAL_PORT])) return EXIT_FAILURE;
+    int sockfd = open_socket(set_port());
     // create thread for sending datagrams
     pthread_t send_thread;
-    int err = pthread_create(&send_thread, NULL, send_start, &sockfd);
-    if (err){
-        error_no(pthread_create, err);
-        return EXIT_FAILURE;
-    }
-    if (recv_start(sockfd)) return EXIT_FAILURE;
+    pthread_create(&send_thread, NULL, send_start, &sockfd);
+    recv_start(sockfd);
     // wait for send_thread before closing socket
-    void *send_thread_ret;
-    err = pthread_join(send_thread, &send_thread_ret);
-    if (err){
-        error_no(pthread_join, err);
-        return EXIT_FAILURE;
-    }
-    if (send_thread_ret) return EXIT_FAILURE;
-    if (close(sockfd)) error(close);
-    return EXIT_SUCCESS;
+    pthread_join(send_thread, NULL);
+    close(sockfd);
+    return 0;
 }
 
-// get_options returns an array of option values, with the indices corresponding
-// to those of options
-char **get_options(){
-    char **values;
-    for (int i = 0;; i++)
-        if (!options[i]){
-            values = calloc(i, sizeof(char *));
-            break;
-        }
-    for (char **e = environ; *e; e++)
-        for (int i = 0; (*e)[i] != '\0'; i++)
-            if ((*e)[i] == '='){
-                for (int j = 0; options[j]; j++)
-                    if (!strncmp(options[j], *e, i) && options[j][i] == '\0'){
-                        values[j] = *e + i + 1;
-                        break;
-                    }
-                break;
+// set_port returns the port number in network byte order as decided by the user
+in_port_t set_port(){
+    printf("UDP listening port (0 for ephemeral): ");
+    int port;
+    while (1){
+        int ret = scanf("%d", &port);
+        if (ret == 1){
+            if (port > 0xffff){
+                printf("Port number too large, try again: ");
+                continue;
             }
-    return values;
+            if (port && port < 1024 && geteuid() != 0){
+                printf("Need to be root to bind to port %d, try again: ", port);
+                continue;
+            }
+            return (in_port_t) htons(port);
+        }
+        if (ret == EOF){
+            printf("%d\n", ret);
+            // user closed stream
+            if (feof(stdin)){
+                printf("\n");
+                exit(0);
+            }
+            if (ferror(stdin)) printf("Stream error (stdin).\n");
+        }
+        printf("Invalid input, try again: ");
+    }
+    return 0;
 }
 
-// open_socket returns a UDP socket
-int open_socket(){
+// open_socket returns a UDP socket, bound to the specified port
+//  passing 0 to port lets the kernel choose an ephemeral port
+int open_socket(in_port_t port){
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd == -1){
-        error(socket);
-        return -1;
-    }
+    if (sockfd == -1) eprint(errno);
+    struct sockaddr_in sa;
+    socklen_t salen = sizeof(sa);
+    sa.sin_family = AF_INET;
+    sa.sin_port = port;
+    sa.sin_addr.s_addr = INADDR_ANY;
+    bind(sockfd, (struct sockaddr *) &sa, salen);
+    getsockname(sockfd, (struct sockaddr *) &sa, &salen);
+    char address[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &sa.sin_addr, address, INET_ADDRSTRLEN);
+    int bound_port = ntohs(sa.sin_port);
+    printf("Listening for datagrams on %s:%d\n", address, bound_port);
     return sockfd;
 }
 
-// bind_socket binds the socket to the specified local port if possible
-//  port can be a number or a service name from /etc/services
-//  passing NULL to port lets the kernel choose an ephemeral port to bind to
-int bind_socket(int sockfd, char *port){
-    struct sockaddr *addr;
-    socklen_t addrlen;
-    if (get_address(&addr, &addrlen, "localhost", port))
-        return -1;
-    if (bind(sockfd, addr, addrlen)){
-        error(bind);
-        return -1;
-    }
-    return 0;
-}
-
-// get_address takes references to *addr and addrlen and populates them
-//  host can be a hostname, or an ip address
-//  port can be a number or a service name from /etc/services
-int get_address(struct sockaddr **addr, socklen_t *addrlen, char *host,
-        char *port){
-    struct addrinfo hints = { 0 };
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_protocol = IPPROTO_UDP;
-    struct addrinfo *result;
-    int gai_errno = getaddrinfo(host, port, &hints, &result);
-    if (gai_errno == EAI_SYSTEM){
-        error(getaddrinfo);
-        return -1;
-    }
-    else if (gai_errno){
-        error_m(getaddrinfo, gai_strerror(gai_errno));
-        return -1;
-    }
-    *addr = result->ai_addr;
-    *addrlen = result->ai_addrlen;
-    freeaddrinfo(result);
-    return 0;
-}

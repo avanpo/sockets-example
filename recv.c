@@ -29,12 +29,10 @@ void recv_start(int sockfd){
         struct datagram dg = { sockfd, buf };
         recv_message(&dg);
         char address[INET_ADDRSTRLEN];
-        if (!inet_ntop(AF_INET, &dg.src_address, address, INET_ADDRSTRLEN))
-            ; //error
+        inet_ntop(AF_INET, &dg.src_address, address, INET_ADDRSTRLEN);
         int port = ntohs(dg.src_port);
-        int ret = printf("%d byte%s from %s:%d", dg.length,
-                dg.length != 1 ? "s" : "", address, port);
-        if (ret < 0); //error
+        printf("%d byte%s from %s:%d", dg.length, dg.length != 1 ? "s" : "",
+                address, port);
         int i = 0;
         for (; i < dg.length; i++)
             if (!isprint(buf[i])) break;
@@ -53,12 +51,10 @@ void recv_start(int sockfd){
                     hex[p++] = ' ';
             }
             hex[5 * dg.length / 2] = '\0';
-            ret = printf(" (in hexadecimal)\n%s\n", hex);
-            if (ret < 0); //error
+            printf(" (in hexadecimal)\n%s\n", hex);
             continue;
         }
-        ret = printf("\n%s\n", buf);
-        if (ret < 0); //error
+        printf("\n%s\n", buf);
     }
 }
 
@@ -68,7 +64,7 @@ void recv_message(struct datagram *dg){
     socklen_t salen = sizeof(struct sockaddr_in);
     int ret = recvfrom(dg->sockfd, dg->buffer, UDP_MAX_PAYLOAD, MSG_TRUNC,
             (struct sockaddr *) &sa, &salen);
-    if (ret == -1); //error
+    if (ret == -1) eprint(errno);
     dg->src_address = sa.sin_addr.s_addr;
     dg->src_port = sa.sin_port;
     dg->too_large = ret < UDP_MAX_PAYLOAD ? false : true;

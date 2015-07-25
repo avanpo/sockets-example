@@ -23,13 +23,11 @@ void *send_start(void *arg){
         // flush newline from last input
         fgetc(stdin);
         while ((ret = fread(buf, 1, UDP_MAX_PAYLOAD, stdin))){
-            if (sendto(sockfd, buf, ret, 0, (struct sockaddr *) &sa, salen)
-                    == -1); //error
+            sendto(sockfd, buf, ret, 0, (struct sockaddr *) &sa, salen);
             count++;
             if (ret < UDP_MAX_PAYLOAD) break;
         }
-        ret = printf("\n%d datagram%s sent.\n", count, count != 1 ? "s" : "");
-        if (ret < 0); //error
+        printf("\n%d datagram%s sent.\n", count, count != 1 ? "s" : "");
     }
     return NULL;
 }
@@ -37,17 +35,15 @@ void *send_start(void *arg){
 // set_address returns the ipv4 address in network byte order as decided by the
 // user
 uint32_t set_address(){
-    int ret = printf("Send to (IPv4 address): ");
-    if (ret < 0); //error
+    printf("Send to (IPv4 address): ");
     while (1){
         char a[16];
         uint32_t addr;
-        ret = scanf("%15s", a);
+        int ret = scanf("%15s", a);
         if (ret == 1){
             ret = inet_pton(AF_INET, a, &addr);
             if (!ret){
-                ret = printf("Invalid input, try again: ");
-                if (ret < 0); //error
+                printf("Invalid input, try again: ");
                 continue;
             }
             return addr;
@@ -58,25 +54,22 @@ uint32_t set_address(){
                 printf("\n");
                 exit(0);
             }
-            if (ferror(stdin)); //error
+            if (ferror(stdin)) printf("Stream error (stdin).\n");
         }
-        ret = printf("Invalid input, try again: ");
-        if (ret < 0); //error
+        printf("Invalid input, try again: ");
     }
     return 0;
 }
 
 // set_port returns the port number in network byte order as decided by the user
 in_port_t set_port(){
-    int ret = printf("UDP port number: ");
-    if (ret < 0); //error
+    printf("UDP port number: ");
     int port;
     while (1){
-        ret = scanf("%d", &port);
+        int ret = scanf("%d", &port);
         if (ret == 1){
             if (port > 0xffff){
-                ret = printf("Port number too large, try again: ");
-                if (ret < 0); //error
+                printf("Port number too large, try again: ");
                 continue;
             }
             return (in_port_t) htons(port);
@@ -87,10 +80,9 @@ in_port_t set_port(){
                 printf("\n");
                 exit(0);
             }
-            if (ferror(stdin)); //error
+            if (ferror(stdin)) printf("Stream error (stdin).\n");
         }
-        ret = printf("Invalid input, try again: ");
-        if (ret < 0); //error
+        printf("Invalid input, try again: ");
     }
     return 0;
 }

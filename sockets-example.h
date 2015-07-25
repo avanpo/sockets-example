@@ -11,13 +11,39 @@
 #define UDP_MAX_PAYLOAD 512
 
 /// error macro definitions
-#define error_fmt(f, t, m) fprintf(stderr, "%s: %s() %s: %s\n", program_name, \
-        f, t, m)
-#define error_m(f, m) error_fmt(#f, "error", m)
-#define error_no(f, n) error_m(f, strerror(n))
-#define error(f) error_no(f, errno)
-#define fatal(m) do { error_fmt(__func__, "fatal", m); exit(EXIT_FAILURE); \
+#define ERROR_RETURN_ERRNO(f, ef, ...) \
+    do { int err_ = f(__VA_ARGS__); if (err_){ ef(err_); exit(-1); } } while (0)
+#define ERROR_NONNULL_SET_ERRNO(f, ef, ...) \
+    do { if (f(__VA_ARGS__)){ ef(errno); exit(-1); } } while (0)
+#define ERROR_NULL_SET_ERRNO(f, ef, ...) \
+    do { if (!f(__VA_ARGS__)){ ef(errno); exit(-1); } } while (0)
+#define ERROR_NEGATIVE_SET_ERRNO(f, ef, ...) \
+    do { if (f(__VA_ARGS__) < 0){ ef(errno); exit(-1); } } while (0)
+#define PRINT_ERROR_FMT(fmt, ...) fprintf(stderr, fmt, __VA_ARGS__)
+#define PRINT_ERROR_STR(e) \
+    PRINT_ERROR_FMT("\n%s:%d: error in %s(): %s\n", __FILE__, __LINE__,\
+            __func__, e)
+#define PRINT_ERRNO(e) \
+    do { char err_string_[64]; \
+        if (strerror_r(e, err_string_, 64)) \
+            PRINT_ERROR_STR("unknown"); \
+        else PRINT_ERROR_STR(err_string_); \
     } while (0)
+#define eprint(e) do { PRINT_ERRNO(e); exit(-1); } while (0)
+#define bind(...) \
+    ERROR_NONNULL_SET_ERRNO(bind, eprint, __VA_ARGS__)
+#define close(fd) \
+    ERROR_NONNULL_SET_ERRNO(close, eprint, fd)
+#define getsockname(...) \
+    ERROR_NONNULL_SET_ERRNO(getsockname, eprint, __VA_ARGS__)
+#define inet_ntop(...) \
+    ERROR_NULL_SET_ERRNO(inet_ntop, eprint, __VA_ARGS__)
+#define pthread_create(...) \
+    ERROR_RETURN_ERRNO(pthread_create, eprint, __VA_ARGS__)
+#define pthread_join(...) \
+    ERROR_RETURN_ERRNO(pthread_join, eprint, __VA_ARGS__)
+#define sendto(...) \
+    ERROR_NEGATIVE_SET_ERRNO(sendto, eprint, __VA_ARGS__)
 
 /// extern function declarations
 extern void recv_start(int);
